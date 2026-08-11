@@ -1,0 +1,14 @@
+{
+  "name": "questboard",
+  "version": "4.2.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check reset-countdown.js && node --check progress-features.js && node --check app.js",
+    "test": "node test/countdown.mjs && node test/progress-features.mjs && node test/smoke.mjs && node test/migration.mjs"
+  }
+}

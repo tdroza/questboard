@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6d5dfc">
+  <meta name="description" content="A family chore tracker that turns everyday tasks into friendly XP competition.">
+  <title>Questboard — Family Chore Challenge</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#quests" aria-label="Questboard home">
+        <span class="brand-mark" aria-hidden="true">Q</span>
+        <span>
+          <strong>Questboard</strong>
+          <small>Family chore challenge</small>
+        </span>
+      </a>
+
+      <div class="profile-control">
+        <label for="activeUserSelect">Playing as</label>
+        <div class="profile-select-wrap">
+          <span id="activeUserAvatar" class="mini-avatar" aria-hidden="true">🦊</span>
+          <select id="activeUserSelect" aria-label="Choose profile"></select>
+          <button id="lockSessionButton" type="button" class="profile-lock-button" aria-label="Lock current profile" title="Lock profile">🔒</button>
+        </div>
+      </div>
+    </header>
+
+    <nav class="primary-nav" aria-label="Main navigation">
+      <button type="button" class="nav-item is-active" data-route="quests" aria-current="page">
+        <span aria-hidden="true">✓</span> My quests
+      </button>
+      <button type="button" class="nav-item" data-route="leaderboard">
+        <span aria-hidden="true">🏆</span> Leaderboard
+      </button>
+      <button type="button" class="nav-item" data-route="parent">
+        <span aria-hidden="true">⚙</span> Parent area
+      </button>
+    </nav>
+
+    <main id="appMain" tabindex="-1">
+      <section id="questsView" class="view" aria-labelledby="questsHeading"></section>
+      <section id="leaderboardView" class="view" aria-labelledby="leaderboardHeading" hidden></section>
+      <section id="parentView" class="view" aria-labelledby="parentHeading" hidden></section>
+    </main>
+
+    <footer class="app-footer">
+      <span>Questboard family server</span>
+      <span class="footer-statuses"><span id="syncFooter" class="sync-status">Connecting…</span><span id="timezoneFooter">Resets use Europe/London time</span></span>
+    </footer>
+  </div>
+
+  <dialog id="userDialog" class="dialog">
+    <form id="userForm" method="dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Player profile</p>
+          <h2 id="userDialogTitle">Add a player</h2>
+        </div>
+        <button type="button" class="icon-button" data-close-dialog aria-label="Close">×</button>
+      </div>
+
+      <input type="hidden" id="userIdField">
+      <label class="field">
+        <span>Name</span>
+        <input id="userNameField" name="name" maxlength="24" required autocomplete="off" placeholder="e.g. Mia">
+      </label>
+
+      <div class="field-grid two-columns">
+        <label class="field">
+          <span>Avatar emoji</span>
+          <input id="userAvatarField" name="avatar" maxlength="4" required autocomplete="off" placeholder="🦊">
+        </label>
+        <label class="field">
+          <span>Profile colour</span>
+          <input id="userColourField" name="colour" type="color" value="#6d5dfc">
+        </label>
+      </div>
+
+      <label class="toggle-field admin-role-toggle">
+        <input id="userAdminField" name="isAdmin" type="checkbox">
+        <span>
+          <strong>Administrator</strong>
+          <small>Can open the Parent area and manage all household settings.</small>
+        </span>
+      </label>
+
+      <label class="field">
+        <span id="userPinLabel">Account PIN</span>
+        <input id="userPinField" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" placeholder="4 to 8 digits">
+        <small id="userPinHint" class="field-hint">Only an admin can set or change this PIN.</small>
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" class="button secondary" data-close-dialog>Cancel</button>
+        <button type="submit" class="button primary">Save player</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <dialog id="switchDialog" class="dialog pin-dialog">
+    <form id="switchForm">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Protected profile</p>
+          <h2 id="switchDialogTitle">Choose a profile</h2>
+        </div>
+        <button id="switchCloseButton" type="button" class="icon-button" data-close-switch aria-label="Close">×</button>
+      </div>
+
+      <label class="field">
+        <span>Profile</span>
+        <select id="switchUserSelect" required></select>
+      </label>
+      <div id="switchProfileSummary" class="switch-profile-summary"></div>
+      <label class="field">
+        <span>PIN</span>
+        <input id="switchPinField" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" required placeholder="Enter 4 to 8 digits">
+      </label>
+      <p id="switchError" class="form-error" role="alert" hidden></p>
+
+      <div class="dialog-actions">
+        <button id="switchCancelButton" type="button" class="button secondary" data-close-switch>Cancel</button>
+        <button type="submit" class="button primary">Unlock profile</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="confettiLayer" class="confetti-layer" aria-hidden="true"></div>
+
+  <script src="reset-countdown.js" defer></script>
+  <script src="progress-features.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
