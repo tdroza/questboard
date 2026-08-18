@@ -1,4 +1,6 @@
-# Questboard family server
+# Questboard
+
+> UI fix: the profile avatar on the PIN unlock screen is now centred and displayed at full size on desktop and mobile. family server
 
 Questboard gamifies daily, weekly and monthly household tasks with XP, levels, completion streaks, unlockable rewards and family leaderboards. This version stores household data on a small Node server so phones, tablets and computers share the same users, quests, rewards, completions and scores.
 

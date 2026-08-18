@@ -88,6 +88,10 @@ try {
   if (!appScript.includes("dailyStreakStatusForUser") || !appScript.includes('streak-pill streak-${entry.streakStatus.state}') || !appScript.includes("streakFreezeActive") || !appScript.includes("streakIcon")) {
     throw new Error("Leaderboard streak progress or streak-freeze states were not served");
   }
+  const styles = await fetch(`${baseUrl}/styles.css`).then((response) => response.text());
+  if (!styles.includes(".switch-profile-summary > div > span") || !styles.includes("font-size: 1.9rem") || styles.includes(".switch-profile-summary span {")) {
+    throw new Error("Unlock profile avatar styles could regress to the compressed avatar layout");
+  }
 
   const initial = await api("/api/state").then((response) => response.json());
   if (initial.currentUser !== null) throw new Error("A new browser should start locked");

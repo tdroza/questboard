@@ -1548,22 +1548,25 @@ main[tabindex="-1"]:focus {
 }
 
 .switch-profile-avatar {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
   display: grid;
   place-items: center;
-  border-radius: 15px;
+  margin: 0;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--player-colour) 14%, white);
-  font-size: 1.45rem;
+  color: inherit;
+  font-size: 1.9rem;
+  line-height: 1;
 }
 
-.switch-profile-summary strong,
-.switch-profile-summary span {
+.switch-profile-summary > div > strong,
+.switch-profile-summary > div > span {
   display: block;
 }
 
-.switch-profile-summary span {
+.switch-profile-summary > div > span {
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.78rem;
