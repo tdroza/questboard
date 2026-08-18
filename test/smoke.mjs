@@ -85,14 +85,17 @@ try {
     throw new Error("Streak helper was not served");
   }
   const appScript = await fetch(`${baseUrl}/app.js`).then((response) => response.text());
-  if (!appScript.includes("dailyStreakStatusForUser") || !appScript.includes('streak-pill streak-${entry.streakStatus.state}')) {
-    throw new Error("Leaderboard streak progress states were not served");
+  if (!appScript.includes("dailyStreakStatusForUser") || !appScript.includes('streak-pill streak-${entry.streakStatus.state}') || !appScript.includes("streakFreezeActive") || !appScript.includes("streakIcon")) {
+    throw new Error("Leaderboard streak progress or streak-freeze states were not served");
   }
 
   const initial = await api("/api/state").then((response) => response.json());
   if (initial.currentUser !== null) throw new Error("A new browser should start locked");
   if (initial.state.users.length !== 4 || initial.state.tasks.length !== 12 || initial.state.rewards.length !== 3) {
     throw new Error("Seed users, quests or rewards were not initialised correctly");
+  }
+  if (initial.state.streakFreezeEnabled !== false || initial.state.streakFreezePeriods.length !== 0) {
+    throw new Error("Streak freeze was not disabled by default");
   }
   const admin = initial.state.users.find((user) => user.role === "admin");
   if (!admin || admin.id !== "user-parent") throw new Error("Default admin profile is missing");
@@ -199,6 +202,7 @@ try {
   const beforePromotion = await api("/api/state", { cookie: adminCookie }).then((response) => response.json());
   const promotedState = structuredClone(beforePromotion.state);
   promotedState.streakResetMonthly = true;
+  promotedState.streakFreezeEnabled = true;
   promotedState.users.find((user) => user.id === "user-mia").role = "admin";
   const promoteMia = await api("/api/state", {
     method: "PUT",
@@ -220,6 +224,9 @@ try {
   const current = await api("/api/state", { cookie: adminCookie }).then((response) => response.json());
   if (current.state.users.filter((user) => user.role === "admin").length !== 2 || current.state.streakResetMonthly !== true) {
     throw new Error("Multiple administrators or monthly streak settings were not persisted");
+  }
+  if (current.state.streakFreezeEnabled !== true || !current.state.streakFreezePeriods.some((period) => !period.endDay)) {
+    throw new Error("Streak freeze setting or active freeze period was not persisted");
   }
   const stateA = structuredClone(current.state);
   const stateB = structuredClone(current.state);
@@ -256,6 +263,9 @@ try {
   }
   if (!restored.state.rewards.some((reward) => reward.id === "reward-test" && reward.threshold === 375)) {
     throw new Error("Admin-created reward data did not persist across a server restart");
+  }
+  if (restored.state.streakFreezeEnabled !== true || !restored.state.streakFreezePeriods.some((period) => !period.endDay)) {
+    throw new Error("Streak freeze did not persist across a server restart");
   }
 
   const storedText = await readFile(join(dataDirectory, "questboard.json"), "utf8");

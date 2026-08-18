@@ -452,7 +452,7 @@
             <div class="score-tile"><span>This month</span><strong>${formatNumber(scoreForUser(user.id, "month"))} XP</strong></div>
             <div class="score-tile streak-tile streak-${streakStatus.state}">
               <span>Daily streak</span>
-              <strong><span class="streak-flame" aria-hidden="true">🔥</span> ${formatNumber(streak)} day${streak === 1 ? "" : "s"}</strong>
+              <strong><span class="streak-flame" aria-hidden="true">${streakIcon()}</span> ${formatNumber(streak)} day${streak === 1 ? "" : "s"}</strong>
               <small class="streak-status">${escapeHtml(streakStatus.message)}</small>
             </div>
           </div>
@@ -552,8 +552,17 @@
       completions: state.completions,
       timezone: state.timezone,
       now: date,
-      resetMonthly: state.streakResetMonthly === true
+      resetMonthly: state.streakResetMonthly === true,
+      freezePeriods: state.streakFreezePeriods
     });
+  }
+
+  function streakFreezeActive() {
+    return state.streakFreezeEnabled === true;
+  }
+
+  function streakIcon() {
+    return streakFreezeActive() ? "❄️" : "🔥";
   }
 
   function dailyStreakStatusForUser(userId, date = new Date()) {
@@ -565,7 +574,8 @@
     const completed = dailyTasks.filter((task) => isTaskComplete(task, date)).length;
     return window.QuestboardProgressFeatures.dailyStreakStatus({
       completed,
-      total: dailyTasks.length
+      total: dailyTasks.length,
+      frozen: streakFreezeActive()
     });
   }
 
@@ -602,7 +612,7 @@
               <strong>${escapeHtml(entry.user.name)}${entry.user.id === state.selectedUserId ? " (you)" : ""}</strong>
               <div class="rank-bar" aria-hidden="true"><span style="--bar-width: ${share}%"></span></div>
               <span>${entry.score === 0 ? "Ready for a first quest" : `${formatNumber(entry.score)} XP earned ${scopeTitle}`}</span>
-              <span class="streak-pill streak-${entry.streakStatus.state}" title="${escapeHtml(entry.streakStatus.message)}"><span class="streak-flame" aria-hidden="true">🔥</span> ${formatNumber(entry.streak)} day${entry.streak === 1 ? "" : "s"} streak</span>
+              <span class="streak-pill streak-${entry.streakStatus.state}" title="${escapeHtml(entry.streakStatus.message)}"><span class="streak-flame" aria-hidden="true">${streakIcon()}</span> ${formatNumber(entry.streak)} day${entry.streak === 1 ? "" : "s"} streak</span>
             </div>
           </div>
           <div class="rank-score"><strong>${formatNumber(entry.score)}</strong><span>XP</span></div>
@@ -691,7 +701,7 @@
         <div class="player-avatar" style="--player-colour: ${safeColour(user.colour)}" aria-hidden="true">${escapeHtml(user.avatar)}</div>
         <div class="admin-copy">
           <strong>${escapeHtml(user.name)}${user.role === "admin" ? ` <span class="role-badge">Admin</span>` : ""}</strong>
-          <span>${state.tasks.filter((task) => task.userId === user.id && task.active !== false).length} active quests · ${formatNumber(scoreForUser(user.id, "all"))} lifetime XP · 🔥 ${formatNumber(streakForUser(user.id))} day streak</span>
+          <span>${state.tasks.filter((task) => task.userId === user.id && task.active !== false).length} active quests · ${formatNumber(scoreForUser(user.id, "all"))} lifetime XP · ${streakIcon()} ${formatNumber(streakForUser(user.id))} day streak</span>
         </div>
         <div class="row-actions">
           <button type="button" class="icon-button" data-edit-user="${escapeHtml(user.id)}" aria-label="Edit ${escapeHtml(user.name)} and PIN">✎</button>
@@ -807,8 +817,8 @@
 
 
               <form class="settings-block" data-streak-settings-form>
-                <h3>Streak reset</h3>
-                <p>Choose whether daily quest streaks continue forever or restart at the beginning of each month.</p>
+                <h3>Streak settings</h3>
+                <p>Control monthly resets and temporarily protect every player's streak.</p>
                 <label class="toggle-field">
                   <input name="streakResetMonthly" type="checkbox"${state.streakResetMonthly === true ? " checked" : ""}>
                   <span>
@@ -816,7 +826,14 @@
                     <small>At midnight on the first day of each month, each streak starts again from zero.</small>
                   </span>
                 </label>
-                <div class="form-actions"><button type="submit" class="button secondary small">Save streak setting</button></div>
+                <label class="toggle-field">
+                  <input name="streakFreezeEnabled" type="checkbox"${state.streakFreezeEnabled === true ? " checked" : ""}>
+                  <span>
+                    <strong>Streak freeze</strong>
+                    <small>While enabled, frozen days neither increase nor break streaks. Turn it off when normal daily streak tracking should resume.</small>
+                  </span>
+                </label>
+                <div class="form-actions"><button type="submit" class="button secondary small">Save streak settings</button></div>
               </form>
               <div class="settings-block">
                 <h3>Backup and restore</h3>
@@ -1104,11 +1121,39 @@
 
     if (event.target.matches("[data-streak-settings-form]")) {
       event.preventDefault();
-      state.streakResetMonthly = new FormData(event.target).get("streakResetMonthly") === "on";
+      const formData = new FormData(event.target);
+      const nextResetMonthly = formData.get("streakResetMonthly") === "on";
+      const nextFreezeEnabled = formData.get("streakFreezeEnabled") === "on";
+      const freezeChanged = nextFreezeEnabled !== state.streakFreezeEnabled;
+      state.streakResetMonthly = nextResetMonthly;
+      if (freezeChanged) setStreakFreeze(nextFreezeEnabled);
+      state.streakFreezeEnabled = nextFreezeEnabled;
       saveState();
       renderAll();
-      showToast("Streak setting saved", state.streakResetMonthly ? "Streaks now restart each month." : "Streaks now accumulate continuously.", "🔥");
+      const message = nextFreezeEnabled
+        ? "Streak freeze is active for every player."
+        : nextResetMonthly ? "Streak freeze is off; streaks restart each month." : "Streak freeze is off; streaks accumulate continuously.";
+      showToast("Streak settings saved", message, nextFreezeEnabled ? "❄️" : "🔥");
     }
+  }
+
+  function setStreakFreeze(enabled, date = new Date()) {
+    const todayKey = periodKeys(date, state.timezone).dayKey;
+    const periods = Array.isArray(state.streakFreezePeriods) ? state.streakFreezePeriods : [];
+    if (enabled) {
+      if (!periods.some((period) => !period.endDay)) {
+        periods.push({ id: makeId("freeze"), startDay: todayKey, endDay: null });
+      }
+      state.streakFreezePeriods = periods;
+      return;
+    }
+
+    const yesterdayKey = window.QuestboardProgressFeatures.shiftDayKey(todayKey, -1);
+    state.streakFreezePeriods = periods.flatMap((period) => {
+      if (period.endDay) return [period];
+      if (!yesterdayKey || period.startDay > yesterdayKey) return [];
+      return [{ ...period, endDay: yesterdayKey }];
+    });
   }
 
   function openUserDialog(userId = null) {
@@ -1632,9 +1677,11 @@
 
   function sharedStateSnapshot(source = state) {
     return {
-      version: 4,
+      version: 5,
       timezone: source.timezone,
       streakResetMonthly: source.streakResetMonthly === true,
+      streakFreezeEnabled: source.streakFreezeEnabled === true,
+      streakFreezePeriods: source.streakFreezePeriods,
       users: source.users,
       tasks: source.tasks,
       rewards: source.rewards,
@@ -1761,9 +1808,11 @@
 
   function mergeSharedStates(base, remote, local) {
     return {
-      version: 4,
+      version: 5,
       timezone: valuesEqual(local.timezone, base.timezone) ? remote.timezone : local.timezone,
       streakResetMonthly: valuesEqual(local.streakResetMonthly, base.streakResetMonthly) ? remote.streakResetMonthly : local.streakResetMonthly,
+      streakFreezeEnabled: valuesEqual(local.streakFreezeEnabled, base.streakFreezeEnabled) ? remote.streakFreezeEnabled : local.streakFreezeEnabled,
+      streakFreezePeriods: mergeCollection(base.streakFreezePeriods, remote.streakFreezePeriods, local.streakFreezePeriods),
       users: mergeCollection(base.users, remote.users, local.users),
       tasks: mergeCollection(base.tasks, remote.tasks, local.tasks),
       rewards: mergeCollection(base.rewards, remote.rewards, local.rewards),
@@ -1845,6 +1894,31 @@
       ? candidate.timezone
       : DEFAULT_TIMEZONE;
     const streakResetMonthly = candidate.streakResetMonthly === true;
+    const streakFreezeEnabled = candidate.streakFreezeEnabled === true;
+    let streakFreezePeriods = Array.isArray(candidate.streakFreezePeriods)
+      ? candidate.streakFreezePeriods
+          .filter((period) => period && typeof period.id === "string" && /^\d{4}-\d{2}-\d{2}$/.test(String(period.startDay || "")))
+          .slice(-1000)
+          .map((period) => ({
+            id: period.id,
+            startDay: period.startDay,
+            endDay: /^\d{4}-\d{2}-\d{2}$/.test(String(period.endDay || "")) ? period.endDay : null
+          }))
+          .filter((period) => !period.endDay || period.endDay >= period.startDay)
+      : [];
+    if (!streakFreezeEnabled) {
+      streakFreezePeriods = streakFreezePeriods.filter((period) => period.endDay);
+    } else if (!streakFreezePeriods.some((period) => !period.endDay)) {
+      streakFreezePeriods.push({ id: makeId("freeze"), startDay: periodKeys(new Date(), timezone).dayKey, endDay: null });
+    } else {
+      let keptOpen = false;
+      streakFreezePeriods = streakFreezePeriods.filter((period) => {
+        if (period.endDay) return true;
+        if (keptOpen) return false;
+        keptOpen = true;
+        return true;
+      });
+    }
     let users = Array.isArray(candidate.users)
       ? candidate.users
           .filter((user) => user && typeof user.id === "string" && typeof user.name === "string")
@@ -1921,9 +1995,11 @@
     const preferredUserId = typeof candidate.selectedUserId === "string" ? candidate.selectedUserId : null;
 
     return {
-      version: 4,
+      version: 5,
       timezone,
       streakResetMonthly,
+      streakFreezeEnabled,
+      streakFreezePeriods,
       selectedUserId: userIds.has(preferredUserId) ? preferredUserId : null,
       users,
       tasks,
@@ -1977,9 +2053,11 @@
     ].filter(Boolean);
 
     return {
-      version: 4,
+      version: 5,
       timezone: DEFAULT_TIMEZONE,
       streakResetMonthly: false,
+      streakFreezeEnabled: false,
+      streakFreezePeriods: [],
       selectedUserId: null,
       users,
       tasks,

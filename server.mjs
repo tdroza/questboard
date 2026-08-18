@@ -132,7 +132,7 @@ function createSeedState() {
   const completions = completionSpecs.map(([taskId, offset]) => (
     createCompletion(taskMap.get(taskId), shiftedDate(now, offset), timezone)
   ));
-  return { version: 4, timezone, streakResetMonthly: false, users, tasks, rewards, completions };
+  return { version: 5, timezone, streakResetMonthly: false, streakFreezeEnabled: false, streakFreezePeriods: [], users, tasks, rewards, completions };
 }
 
 function cleanText(value, maximum, fallback = "") {
@@ -154,10 +154,33 @@ function normaliseState(candidate) {
   if (!candidate || typeof candidate !== "object") throw new Error("Missing Questboard state");
   const timezone = cleanText(candidate.timezone, 100, "Europe/London") || "Europe/London";
   const streakResetMonthly = candidate.streakResetMonthly === true;
+  const streakFreezeEnabled = candidate.streakFreezeEnabled === true;
   try {
     new Intl.DateTimeFormat("en-GB", { timeZone: timezone }).format();
   } catch {
     throw new Error("Invalid timezone");
+  }
+
+  let streakFreezePeriods = Array.isArray(candidate.streakFreezePeriods) ? candidate.streakFreezePeriods.slice(-1000).map((period) => {
+    const id = cleanText(period?.id, 100);
+    const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(period?.startDay || "")) ? period.startDay : null;
+    const endDay = /^\d{4}-\d{2}-\d{2}$/.test(String(period?.endDay || "")) ? period.endDay : null;
+    if (!id || !startDay || (endDay && endDay < startDay)) return null;
+    return { id, startDay, endDay };
+  }).filter(Boolean) : [];
+
+  if (!streakFreezeEnabled) {
+    streakFreezePeriods = streakFreezePeriods.filter((period) => period.endDay);
+  } else if (!streakFreezePeriods.some((period) => !period.endDay)) {
+    streakFreezePeriods.push({ id: makeId("freeze"), startDay: periodKeys(new Date(), timezone).dayKey, endDay: null });
+  } else {
+    let keptOpen = false;
+    streakFreezePeriods = streakFreezePeriods.filter((period) => {
+      if (period.endDay) return true;
+      if (keptOpen) return false;
+      keptOpen = true;
+      return true;
+    });
   }
 
   const mappedUsers = Array.isArray(candidate.users) ? candidate.users.slice(0, 100).map((user) => ({
@@ -219,7 +242,7 @@ function normaliseState(candidate) {
     };
   }).filter(Boolean) : [];
 
-  return { version: 4, timezone, streakResetMonthly, users, tasks, rewards, completions };
+  return { version: 5, timezone, streakResetMonthly, streakFreezeEnabled, streakFreezePeriods, users, tasks, rewards, completions };
 }
 
 async function hashPin(pin) {

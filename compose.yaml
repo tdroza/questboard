@@ -6,7 +6,4 @@ services:
     ports:
       - "${QUESTBOARD_PORT:-4173}:4173"
     volumes:
-      - questboard-data:/data
-
-volumes:
-  questboard-data:
+      - ${PWD}/data:/data

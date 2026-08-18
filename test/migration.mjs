@@ -65,10 +65,13 @@ try {
   if (!migrated.state.users.some((user) => user.id === "user-mia") || !migrated.state.tasks.some((task) => task.id === "task-mia-bed")) {
     throw new Error("Legacy users or tasks were lost during migration");
   }
-  if (migrated.state.version !== 4 || !Array.isArray(migrated.state.rewards)) {
+  if (migrated.state.version !== 5 || !Array.isArray(migrated.state.rewards)) {
     throw new Error("Legacy data did not migrate to the current schema");
   }
   if (migrated.state.streakResetMonthly !== false) throw new Error("Legacy data did not receive the perpetual-streak default");
+  if (migrated.state.streakFreezeEnabled !== false || !Array.isArray(migrated.state.streakFreezePeriods) || migrated.state.streakFreezePeriods.length !== 0) {
+    throw new Error("Legacy data did not receive the streak-freeze default");
+  }
   if (!(await login("user-parent", "1234")).ok) throw new Error("Migrated admin default PIN did not work");
   if (!(await login("user-mia", "0000")).ok) throw new Error("Migrated child default PIN did not work");
 

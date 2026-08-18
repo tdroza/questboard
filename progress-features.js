@@ -31,11 +31,14 @@
     return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
   }
 
-  function dailyStreakStatus({ completed = 0, total = 0 } = {}) {
+  function dailyStreakStatus({ completed = 0, total = 0, frozen = false } = {}) {
     const safeTotal = Math.max(0, Number.isFinite(Number(total)) ? Math.trunc(Number(total)) : 0);
     const safeCompleted = Math.max(0, Math.min(safeTotal, Number.isFinite(Number(completed)) ? Math.trunc(Number(completed)) : 0));
     const remaining = Math.max(0, safeTotal - safeCompleted);
 
+    if (frozen) {
+      return { state: "frozen", completed: safeCompleted, total: safeTotal, remaining, message: "Streak freeze active" };
+    }
     if (safeTotal === 0) {
       return { state: "bright", completed: 0, total: 0, remaining: 0, message: "No daily quests today" };
     }
@@ -48,7 +51,16 @@
     return { state: "yellow", completed: safeCompleted, total: safeTotal, remaining, message: `${remaining} quest${remaining === 1 ? "" : "s"} remaining` };
   }
 
-  function calculateStreak({ userId, tasks = [], completions = [], timezone = "Europe/London", now = new Date(), resetMonthly = false }) {
+  function isFrozenDay(dayKey, freezePeriods = []) {
+    return freezePeriods.some((period) => {
+      const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(period?.startDay || "")) ? period.startDay : null;
+      const endDay = /^\d{4}-\d{2}-\d{2}$/.test(String(period?.endDay || "")) ? period.endDay : null;
+      if (!startDay || dayKey < startDay) return false;
+      return !endDay || dayKey <= endDay;
+    });
+  }
+
+  function calculateStreak({ userId, tasks = [], completions = [], timezone = "Europe/London", now = new Date(), resetMonthly = false, freezePeriods = [] }) {
     const dailyTasks = tasks.filter((task) => (
       task?.userId === userId &&
       task?.frequency === "daily" &&
@@ -80,11 +92,18 @@
 
     const todayKey = civilDayKey(now, timezone);
     if (!todayKey) return 0;
-    let cursor = isCompleteDay(todayKey) ? todayKey : shiftDayKey(todayKey, -1);
+    let cursor = isFrozenDay(todayKey, freezePeriods) || isCompleteDay(todayKey) ? todayKey : shiftDayKey(todayKey, -1);
     const monthStartKey = resetMonthly ? `${todayKey.slice(0, 7)}-01` : null;
     let streak = 0;
+    let scannedDays = 0;
 
-    while (cursor && (!monthStartKey || cursor >= monthStartKey) && streak < 36_600 && isCompleteDay(cursor)) {
+    while (cursor && (!monthStartKey || cursor >= monthStartKey) && scannedDays < 36_600) {
+      scannedDays += 1;
+      if (isFrozenDay(cursor, freezePeriods)) {
+        cursor = shiftDayKey(cursor, -1);
+        continue;
+      }
+      if (!isCompleteDay(cursor)) break;
       streak += 1;
       cursor = shiftDayKey(cursor, -1);
     }
@@ -96,6 +115,7 @@
     calculateStreak,
     dailyStreakStatus,
     civilDayKey,
-    shiftDayKey
+    shiftDayKey,
+    isFrozenDay
   });
 })(globalThis);

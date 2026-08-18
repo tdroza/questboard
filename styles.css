@@ -1616,6 +1616,12 @@ main[tabindex="-1"]:focus {
   transform: scale(1.08);
 }
 
+.streak-frozen .streak-flame {
+  filter: drop-shadow(0 0 5px rgba(145, 220, 255, 0.85));
+  opacity: 1;
+  transform: scale(1.05);
+}
+
 .streak-status {
   display: block;
   margin-top: 5px;

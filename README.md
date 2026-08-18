@@ -59,7 +59,10 @@ New child profiles require a 4-to-8-digit PIN when they are created. Only an aut
 - Every child has a **daily streak** showing how many consecutive days all of their active daily quests were completed.
 - The home-screen Daily Streak tile uses a three-state flame to show today's progress: grey before any daily quest is completed, yellow while some are complete, and a bright flame once all active daily quests are finished. The tile also shows how many daily quests remain, or confirms when the streak is secured.
 - The Standings section uses the same three-state flame beside each player's streak, so today's streak progress is visible across the family leaderboard.
-- Finishing all daily quests today extends the streak. An unfinished current day does not erase a streak earned through yesterday; the streak breaks only after a full missed day.
+- Administrators can enable **Streak freeze** from **Parent area → App Settings**. It is off by default and applies to every player.
+- While Streak freeze is active, frozen calendar days neither increase nor break streaks. The streak count is held steady, and the usual flame is replaced by a **❄️ snowflake** on the home screen, Standings and Parent player summaries.
+- Turning Streak freeze off resumes normal tracking. Days already covered by the freeze remain protected, so a holiday or exceptional day cannot break the streak later.
+- Finishing all daily quests on a normal day extends the streak. An unfinished current day does not erase a streak earned through yesterday; the streak breaks only after a full missed, non-frozen day.
 - A daily quest starts affecting streaks from the day it is created, so adding a new quest does not retroactively break earlier days. Paused daily quests are not required.
 - Streaks use the configured household timezone and appear beside the front-page XP totals and on every leaderboard row.
 - Rewards are shared across the household and unlock independently for each child using **lifetime XP**.
@@ -74,7 +77,7 @@ docker run -d \
   --name questboard \
   --restart unless-stopped \
   -p 4173:4173 \
-  -v questboard-data:/data \
+  -v "${PWD}/data:/data" \
   questboard
 ```
 
@@ -86,7 +89,7 @@ The container writes a single atomic JSON data file to:
 /data/questboard.json
 ```
 
-`compose.yaml` mounts a named Docker volume at `/data`, so upgrades and container recreation do not remove family data or PIN hashes.
+`compose.yaml` bind-mounts `${PWD}/data` on the host to `/data` in the container. The live database is therefore kept in `./data/questboard.json` alongside the installation and survives container rebuilds or recreation.
 
 Useful commands:
 
@@ -104,11 +107,11 @@ docker compose down
 docker compose up -d --build
 ```
 
-Do not add `--volumes` to `docker compose down` unless you deliberately want to remove the persistent data volume.
+Do not delete the local `./data` directory during upgrades; it contains the live `questboard.json` database and PIN hashes.
 
 ## Upgrading the previous server version
 
-Replace the application files and rebuild the container while keeping the existing `questboard-data` volume:
+Replace the application files and rebuild the container while keeping the existing `./data` directory. If you are moving from an older Questboard release that used the Docker named volume `questboard-data`, copy `/data/questboard.json` from that volume into `./data/questboard.json` before starting this version. The bind mount does not migrate named-volume contents automatically.
 
 ```bash
 docker compose up -d --build
@@ -117,7 +120,7 @@ docker compose up -d --build
 On first start, Questboard automatically:
 
 1. Retains existing users, quests, completions and XP history.
-2. Upgrades the shared data schema to support streak calculations and rewards.
+2. Upgrades the shared data schema to support streak calculations, streak-freeze periods and rewards.
 3. Adds a dedicated **Parent** admin profile if one does not exist.
 4. Assigns the Parent default PIN `1234`.
 5. Assigns existing child profiles the migration PIN `0000`.
@@ -139,7 +142,7 @@ For matching users already present on this server, importing a backup preserves 
 
 ## Synchronisation behaviour
 
-- The server is the source of truth for users, tasks, rewards, timezone, completion history and PIN hashes.
+- The server is the source of truth for users, tasks, rewards, timezone, streak settings, completion history and PIN hashes.
 - Each device keeps its own authenticated profile session.
 - Devices poll for updates every four seconds and immediately save authorised changes.
 - Admin saves use revision checks and a three-way merge, preserving near-simultaneous changes from different devices.

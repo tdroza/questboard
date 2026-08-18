@@ -73,3 +73,26 @@ if (noQuestsStatus.state !== "bright" || noQuestsStatus.message !== "No daily qu
   throw new Error("A day with no active daily quests should show the bright no-quests state");
 }
 
+
+const frozenStatus = dailyStreakStatus({ completed: 2, total: 5, frozen: true });
+if (frozenStatus.state !== "frozen" || frozenStatus.message !== "Streak freeze active") {
+  throw new Error("An active streak freeze did not produce the frozen status state");
+}
+
+const freezeMissCompletions = ["2026-07-20", "2026-07-22"].flatMap((day) => [completion("bed", day), completion("teeth", day)]);
+const oneFrozenDay = [{ id: "freeze-1", startDay: "2026-07-21", endDay: "2026-07-21" }];
+if (calculateStreak({ userId, tasks: baseTasks, completions: freezeMissCompletions, timezone: "UTC", now, freezePeriods: oneFrozenDay }) !== 2) {
+  throw new Error("A protected missed day broke or incremented the streak");
+}
+
+const activeFreeze = [{ id: "freeze-2", startDay: "2026-07-22", endDay: null }];
+const yesterdayOnly = ["2026-07-21"].flatMap((day) => [completion("bed", day), completion("teeth", day)]);
+if (calculateStreak({ userId, tasks: baseTasks, completions: yesterdayOnly, timezone: "UTC", now, freezePeriods: activeFreeze }) !== 1) {
+  throw new Error("An active streak freeze did not preserve the streak through an incomplete current day");
+}
+
+if (calculateStreak({ userId, tasks: baseTasks, completions: threeCompleteDays, timezone: "UTC", now, freezePeriods: activeFreeze }) !== 2) {
+  throw new Error("A frozen completed day incorrectly increased the streak");
+}
+
+console.log("Questboard streak freeze tests passed.");
